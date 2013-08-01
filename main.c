@@ -30,7 +30,7 @@
 const char *usage_str = "usage: %s [-t] <trace_path>\n";
 static int running = 0;
 
-size_t handle_payload(uint8_t *buf, unsigned int offs, ssize_t nr)
+size_t handle_packet(uint8_t *buf, unsigned int offs, ssize_t nr)
 {
 	size_t nb = 1;
 
@@ -73,12 +73,10 @@ void read_frame(int fd)
 		unsigned int offs = 0;
 
 		do {
-			if (buf[offs] == 0) {
-				printf("SYNC\n");
+			if (buf[offs] == 0 || buf[offs] == 0x80) /* ignore sync */
 				offs += 1;
-			} else {
-				offs += handle_payload(buf, offs, nr);
-			}
+			else
+				offs += handle_packet(buf, offs, nr);
 		} while (running && offs < nr);
 	}
 }
