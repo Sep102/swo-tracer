@@ -23,6 +23,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
+#define ITM_ADDRESS		0b11111000
 #define ITM_HW_SOURCE	0b00000100
 #define ITM_SIZE		0b00000011
 
@@ -34,7 +35,7 @@ size_t handle_payload(uint8_t *buf, unsigned int offs, ssize_t nr)
 	size_t nb = 1;
 
 	if (buf[offs] & ITM_HW_SOURCE)
-		puts("HW");
+		printf("HW @ %02X ", (buf[offs] & ITM_ADDRESS) >> 3);
 
 	switch (buf[offs] & ITM_SIZE) {
 		case 0b01:
