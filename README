@@ -1,0 +1,21 @@
+swo-tracer - simple watcher and parser for ARM SWO trace output.
+
+Usage:
+
+To parse a file's contents and watch that file for further trace data:
+
+$ swo-tracer <file_path>
+
+To only watch for new data (anything in the file prior to running swo-tracer
+will be lost), supply the -t option:
+
+$ swo-tracer -t <file_path>
+
+Press control+c to stop the program.
+
+Output:
+
+At this time, swo-tracer will output:
+- the byte as an ASCII character for 1-byte fields, ex: c
+- the value in hex for 2-byte fields, ex: [0xFE]
+- the value in hex for 4-byte fields, ex: [0xFEED]
