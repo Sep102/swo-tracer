@@ -23,8 +23,44 @@
 #include <fcntl.h>
 #include <signal.h>
 
+#define ITM_HW_SOURCE	0b00000100
+#define ITM_SIZE		0b00000011
+
 const char *usage_str = "usage: %s [-t] <trace_path>\n";
 static int running = 0;
+
+size_t handle_payload(uint8_t *buf, unsigned int offs, ssize_t nr)
+{
+	size_t nb = 1;
+
+	if (buf[offs] & ITM_HW_SOURCE)
+		puts("HW");
+
+	switch (buf[offs] & ITM_SIZE) {
+		case 0b01:
+			if (offs + 1 < nr)
+				printf("%c", buf[offs+1]);
+			nb += sizeof(uint8_t);
+			break;
+
+		case 0b10:
+			if (offs + 2 < nr)
+				printf("[%02X]", *(uint16_t *)(&buf[offs+1]));
+			nb += sizeof(uint16_t);
+			break;
+
+		case 0b11:
+			if (offs + 4 < nr)
+				printf("[%04X]", *(uint32_t *)(&buf[offs+1]));
+			nb += sizeof(uint32_t);
+			break;
+	}
+
+	if (buf[offs] & ITM_HW_SOURCE)
+		putchar('\n');
+
+	return nb;
+}
 
 void read_frame(int fd)
 {
@@ -36,29 +72,11 @@ void read_frame(int fd)
 		unsigned int offs = 0;
 
 		do {
-			switch (buf[offs]) {
-				case 1:
-					if (offs + 1 < nr)
-						printf("%c", buf[offs+1]);
-					offs += 1 + sizeof(uint8_t);
-					break;
-
-				case 2:
-					if (offs + 2 < nr)
-						printf("[%02X]", *(uint16_t *)(&buf[offs+1]));
-					offs += 1 + sizeof(uint16_t);
-					break;
-
-				case 3:
-					if (offs + 4 < nr)
-						printf("[%04X]", *(uint32_t *)(&buf[offs+1]));
-					offs += 1 + sizeof(uint32_t);
-					break;
-
-				default:
-					fprintf(stderr, "unknown designator 0x%X\n", buf[offs]);
-					offs++;
-					break;
+			if (buf[offs] == 0) {
+				printf("SYNC\n");
+				offs += 1;
+			} else {
+				offs += handle_payload(buf, offs, nr);
 			}
 		} while (running && offs < nr);
 	}
@@ -94,7 +112,7 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	fd = open(argv[optind], flags);
+	fd = open(argv[optind], flags | O_ASYNC);
 
 	if (fd >= 0) {
 		struct sigaction sa;
