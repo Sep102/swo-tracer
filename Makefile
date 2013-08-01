@@ -1,4 +1,4 @@
-CFLAGS = -Wall -pedantic -Werror
+CFLAGS = -Wall -Werror -std=gnu99
 
 swo-tracer: main.c
 	gcc $(CFLAGS) $^ -o $@
