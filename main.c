@@ -27,6 +27,8 @@
 #define ITM_HW_SOURCE	0b00000100
 #define ITM_SIZE		0b00000011
 
+#define ITM_OVERFLOW	0b01110000
+
 const char *usage_str = "usage: %s [-t] <trace_path>\n";
 static int running = 0;
 
@@ -73,10 +75,14 @@ void read_frame(int fd)
 		unsigned int offs = 0;
 
 		do {
-			if (buf[offs] == 0 || buf[offs] == 0x80) /* ignore sync */
+			if (buf[offs] == 0 || buf[offs] == 0x80) { /* ignore sync */
 				offs += 1;
-			else
+			} else if (buf[offs] == ITM_OVERFLOW) {
+				printf("[overflow]\n");
+				offs += 1;
+			} else {
 				offs += handle_packet(buf, offs, nr);
+			}
 		} while (running && offs < nr);
 	}
 }
