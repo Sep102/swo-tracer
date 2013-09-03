@@ -23,11 +23,11 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define ITM_ADDRESS		0b11111000
-#define ITM_HW_SOURCE	0b00000100
-#define ITM_SIZE		0b00000011
+#define ITM_ADDRESS		0xf8
+#define ITM_HW_SOURCE	0x04
+#define ITM_SIZE		0x03
 
-#define ITM_OVERFLOW	0b01110000
+#define ITM_OVERFLOW	0x70
 
 const char *usage_str = "usage: %s [-t] <trace_path>\n";
 static int running = 0;
@@ -40,19 +40,19 @@ size_t handle_packet(uint8_t *buf, unsigned int offs, ssize_t nr)
 		printf("HW @ %02X ", (buf[offs] & ITM_ADDRESS) >> 3);
 
 	switch (buf[offs] & ITM_SIZE) {
-		case 0b01:
+		case 0x01:
 			if (offs + 1 < nr)
 				printf("%c", buf[offs+1]);
 			nb += sizeof(uint8_t);
 			break;
 
-		case 0b10:
+		case 0x02:
 			if (offs + 2 < nr)
 				printf("[%02X]", *(uint16_t *)(&buf[offs+1]));
 			nb += sizeof(uint16_t);
 			break;
 
-		case 0b11:
+		case 0x03:
 			if (offs + 4 < nr)
 				printf("[%04X]", *(uint32_t *)(&buf[offs+1]));
 			nb += sizeof(uint32_t);
