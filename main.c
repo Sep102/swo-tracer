@@ -23,142 +23,142 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#define ITM_ADDRESS		0xf8
-#define ITM_HW_SOURCE	0x04
-#define ITM_SIZE		0x03
+#define ITM_ADDRESS     0xf8
+#define ITM_HW_SOURCE   0x04
+#define ITM_SIZE        0x03
 
-#define ITM_OVERFLOW	0x70
+#define ITM_OVERFLOW    0x70
 
 const char *usage_str = "usage: %s [-t] <trace_path>\n";
 static int running = 0;
 
 size_t handle_packet(uint8_t *buf, unsigned int offs, ssize_t nr)
 {
-	size_t nb = 1;
+    size_t nb = 1;
 
-	if (buf[offs] & ITM_HW_SOURCE)
-		printf("HW @ %02X ", (buf[offs] & ITM_ADDRESS) >> 3);
+    if (buf[offs] & ITM_HW_SOURCE)
+        printf("HW @ %02X ", (buf[offs] & ITM_ADDRESS) >> 3);
 
-	switch (buf[offs] & ITM_SIZE) {
-		case 0x01:
-			if (offs + 1 < nr)
-				printf("%c", buf[offs+1]);
-			nb += sizeof(uint8_t);
-			break;
+    switch (buf[offs] & ITM_SIZE) {
+        case 0x01:
+            if (offs + 1 < nr)
+                printf("%c", buf[offs+1]);
+            nb += sizeof(uint8_t);
+            break;
 
-		case 0x02:
-			if (offs + 2 < nr)
-				printf("[%02X]", *(uint16_t *)(&buf[offs+1]));
-			nb += sizeof(uint16_t);
-			break;
+        case 0x02:
+            if (offs + 2 < nr)
+                printf("[%02X]", *(uint16_t *)(&buf[offs+1]));
+            nb += sizeof(uint16_t);
+            break;
 
-		case 0x03:
-			if (offs + 4 < nr)
-				printf("[%04X]", *(uint32_t *)(&buf[offs+1]));
-			nb += sizeof(uint32_t);
-			break;
-	}
+        case 0x03:
+            if (offs + 4 < nr)
+                printf("[%04X]", *(uint32_t *)(&buf[offs+1]));
+            nb += sizeof(uint32_t);
+            break;
+    }
 
-	if (buf[offs] & ITM_HW_SOURCE)
-		putchar('\n');
+    if (buf[offs] & ITM_HW_SOURCE)
+        putchar('\n');
 
-	return nb;
+    return nb;
 }
 
 void read_frame(int fd)
 {
-	unsigned char buf[512];
-	ssize_t nr;
+    unsigned char buf[512];
+    ssize_t nr;
 
-	nr = read(fd, buf, sizeof(buf));
-	if (nr > 0) {
-		unsigned int offs = 0;
+    nr = read(fd, buf, sizeof(buf));
+    if (nr > 0) {
+        unsigned int offs = 0;
 
-		do {
-			if (buf[offs] == 0 || buf[offs] == 0x80) { /* ignore sync */
-				offs += 1;
-			} else if (buf[offs] == ITM_OVERFLOW) {
-				printf("[overflow]\n");
-				offs += 1;
-			} else {
-				offs += handle_packet(buf, offs, nr);
-			}
-		} while (running && offs < nr);
-	}
+        do {
+            if (buf[offs] == 0 || buf[offs] == 0x80) { /* ignore sync */
+                offs += 1;
+            } else if (buf[offs] == ITM_OVERFLOW) {
+                printf("[overflow]\n");
+                offs += 1;
+            } else {
+                offs += handle_packet(buf, offs, nr);
+            }
+        } while (running && offs < nr);
+    }
 }
 
 void handle_signal(int sig)
 {
-	if (sig == SIGINT)
-		running = 0;
+    if (sig == SIGINT)
+        running = 0;
 }
 
 int main(int argc, char **argv)
 {
-	int opt;
-	int ret;
-	int fd;
-	int flags = O_RDONLY;
+    int opt;
+    int ret;
+    int fd;
+    int flags = O_RDONLY;
 
-	while ((opt = getopt(argc, argv, "t")) != -1) {
-		switch (opt) {
-			case 't':
-			flags = (O_RDWR | O_TRUNC);
-			break;
+    while ((opt = getopt(argc, argv, "t")) != -1) {
+        switch (opt) {
+            case 't':
+            flags = (O_RDWR | O_TRUNC);
+            break;
 
-			default:
-			fprintf(stderr, usage_str, argv[0]);
-			exit(EXIT_FAILURE);
-		}
-	}
+            default:
+            fprintf(stderr, usage_str, argv[0]);
+            exit(EXIT_FAILURE);
+        }
+    }
 
-	if (optind >= argc) {
-		fprintf(stderr, usage_str, argv[0]);
-		exit(EXIT_FAILURE);
-	}
+    if (optind >= argc) {
+        fprintf(stderr, usage_str, argv[0]);
+        exit(EXIT_FAILURE);
+    }
 
-	fd = open(argv[optind], flags | O_ASYNC);
+    fd = open(argv[optind], flags | O_ASYNC);
 
-	if (fd >= 0) {
-		struct sigaction sa;
-		fd_set rfds;
-		struct timeval tv;
-		int retval;
+    if (fd >= 0) {
+        struct sigaction sa;
+        fd_set rfds;
+        struct timeval tv;
+        int retval;
 
-		sa.sa_handler = handle_signal;
-		sigemptyset(&sa.sa_mask);
-		sa.sa_flags = 0;
-		sigaction(SIGINT, &sa, NULL);
+        sa.sa_handler = handle_signal;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = 0;
+        sigaction(SIGINT, &sa, NULL);
 
-		FD_ZERO(&rfds);
-		FD_SET(fd, &rfds);
+        FD_ZERO(&rfds);
+        FD_SET(fd, &rfds);
 
-		tv.tv_sec = 1;
-		tv.tv_usec = 0;
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
 
-		running = 1;
-		while (running) {
-			retval = select(fd + 1, &rfds, NULL, NULL, &tv);
+        running = 1;
+        while (running) {
+            retval = select(fd + 1, &rfds, NULL, NULL, &tv);
 
-			if (retval == -1) {
-				perror("select()");
-				break;
-			}
+            if (retval == -1) {
+                perror("select()");
+                break;
+            }
 
-			if (FD_ISSET(fd, &rfds)) {
-				read_frame(fd);
-			}
-		}
+            if (FD_ISSET(fd, &rfds)) {
+                read_frame(fd);
+            }
+        }
 
-		fprintf(stderr, " Exiting..\n");
+        fprintf(stderr, " Exiting..\n");
 
-		close(fd);
-		ret = 0;
-	} else {
-		fprintf(stderr, "unable to open \"%s\" for reading\n", argv[1]);
+        close(fd);
+        ret = 0;
+    } else {
+        fprintf(stderr, "unable to open \"%s\" for reading\n", argv[1]);
 
-		ret = EXIT_FAILURE;
-	}
+        ret = EXIT_FAILURE;
+    }
 
-	return ret;
+    return ret;
 }
