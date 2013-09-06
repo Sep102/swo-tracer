@@ -19,7 +19,6 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <sys/select.h>
 #include <fcntl.h>
 #include <signal.h>
 
@@ -65,7 +64,7 @@ size_t handle_packet(uint8_t *buf, unsigned int offs, ssize_t nr)
     return nb;
 }
 
-void read_frame(int fd)
+ssize_t read_frame(int fd)
 {
     unsigned char buf[512];
     ssize_t nr;
@@ -85,6 +84,8 @@ void read_frame(int fd)
             }
         } while (running && offs < nr);
     }
+
+    return nr;
 }
 
 void handle_signal(int sig)
@@ -121,33 +122,17 @@ int main(int argc, char **argv)
 
     if (fd >= 0) {
         struct sigaction sa;
-        fd_set rfds;
-        struct timeval tv;
-        int retval;
 
         sa.sa_handler = handle_signal;
         sigemptyset(&sa.sa_mask);
         sa.sa_flags = 0;
         sigaction(SIGINT, &sa, NULL);
 
-        FD_ZERO(&rfds);
-        FD_SET(fd, &rfds);
-
-        tv.tv_sec = 1;
-        tv.tv_usec = 0;
-
         running = 1;
         while (running) {
-            retval = select(fd + 1, &rfds, NULL, NULL, &tv);
-
-            if (retval == -1) {
-                perror("select()");
-                break;
-            }
-
-            if (FD_ISSET(fd, &rfds)) {
-                read_frame(fd);
-            }
+                if (read_frame(fd) <= 0) {
+                    usleep(1000);
+                }
         }
 
         fprintf(stderr, " Exiting..\n");
