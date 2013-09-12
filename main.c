@@ -1,3 +1,4 @@
+/* vim: set sw=8: */
 /* swo-tracer: listen for and parse ARM SWO trace output
  *
  * Copyright (c) 2013 Andrey Yurovsky
