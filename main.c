@@ -1,3 +1,4 @@
+/* vim: set sw=8: */
 /* swo-tracer: listen for and parse ARM SWO trace output
  *
  * Copyright (c) 2013 Andrey Yurovsky
@@ -17,10 +18,18 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
+#include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <signal.h>
+
+#if OS == osx
+# include <sys/types.h>
+# include <sys/event.h>
+# include <sys/time.h>
+#endif
 
 #define ITM_ADDRESS     0xf8
 #define ITM_HW_SOURCE   0x04
@@ -29,7 +38,7 @@
 #define ITM_OVERFLOW    0x70
 
 const char *usage_str = "usage: %s [-t] <trace_path>\n";
-static int running = 0;
+static int running = 1;
 
 size_t handle_packet(uint8_t *buf, unsigned int offs, ssize_t nr)
 {
@@ -128,12 +137,32 @@ int main(int argc, char **argv)
         sa.sa_flags = 0;
         sigaction(SIGINT, &sa, NULL);
 
-        running = 1;
+#if OS == osx
+        int q = kqueue();
+        struct kevent ev;
+        memset(&ev, 0, sizeof(ev));
+
+        ev.ident = fd;
+        ev.filter = EVFILT_READ;
+        ev.flags = EV_ADD;
+
+        kevent(q, &ev, 1, NULL, 0, NULL);
+
         while (running) {
-                if (read_frame(fd) <= 0) {
-                    usleep(1000);
+                int res = kevent(q, NULL, 0, &ev, 1, NULL);
+                if (!res) {
+                  printf("kevent failed: %d\n", errno);
+                }
+
+                read_frame(fd);
+        }
+#else
+        while (running) {
+                if (!read_frame(fd)) {
+                        usleep(1000);
                 }
         }
+#endif
 
         fprintf(stderr, " Exiting..\n");
 
